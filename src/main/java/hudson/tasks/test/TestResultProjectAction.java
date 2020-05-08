@@ -1,18 +1,18 @@
 /*
  * The MIT License
- * 
+ *
  * Copyright (c) 2004-2009, Sun Microsystems, Inc., Kohsuke Kawaguchi
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -50,23 +50,24 @@ import java.util.List;
 public class TestResultProjectAction implements Action {
     /**
      * Project that owns this action.
+     *
      * @since 1.2-beta-1
      */
-    public final Job<?,?> job;
+    public final Job<?, ?> job;
 
     @Deprecated
-    public final AbstractProject<?,?> project;
+    public final AbstractProject<?, ?> project;
 
     /**
      * @since 1.2-beta-1
      */
-    public TestResultProjectAction(Job<?,?> job) {
+    public TestResultProjectAction(Job<?, ?> job) {
         this.job = job;
         project = job instanceof AbstractProject ? (AbstractProject) job : null;
     }
 
     @Deprecated
-    public TestResultProjectAction(AbstractProject<?,?> project) {
+    public TestResultProjectAction(AbstractProject<?, ?> project) {
         this((Job) project);
     }
 
@@ -86,13 +87,13 @@ public class TestResultProjectAction implements Action {
     }
 
     public AbstractTestResultAction getLastTestResultAction() {
-        final Run<?,?> tb = job.getLastSuccessfulBuild();
+        final Run<?, ?> tb = job.getLastSuccessfulBuild();
 
-        Run<?,?> b = job.getLastBuild();
-        while(b!=null) {
+        Run<?, ?> b = job.getLastBuild();
+        while (b != null) {
             AbstractTestResultAction a = b.getAction(AbstractTestResultAction.class);
-            if(a!=null && (!b.isBuilding())) return a;
-            if(b==tb)
+            if (a != null && (!b.isBuilding())) return a;
+            if (b == tb)
                 // if even the last successful build didn't produce the test result,
                 // that means we just don't have any tests configured.
                 return null;
@@ -103,12 +104,24 @@ public class TestResultProjectAction implements Action {
     }
 
     /**
+     * Returns a new supplier instance which provides the API required
+     * for the trend charts
+     *
+     * @param failureOnlyStr True if only failures should be included in the report
+     * @return Supplier
+     */
+    public TrendsSupplier getTrendsSupplier(String failureOnlyStr) {
+        boolean failureOnly = Boolean.parseBoolean(failureOnlyStr);
+        return new TrendsSupplier(failureOnly, getLastTestResultAction());
+    }
+
+    /**
      * Display the test result trend.
      */
-    public void doTrend( StaplerRequest req, StaplerResponse rsp ) throws IOException, ServletException {
+    public void doTrend(StaplerRequest req, StaplerResponse rsp) throws IOException, ServletException {
         AbstractTestResultAction a = getLastTestResultAction();
-        if(a!=null)
-            a.doGraph(req,rsp);
+        if (a != null)
+            a.doGraph(req, rsp);
         else
             rsp.setStatus(HttpServletResponse.SC_NOT_FOUND);
     }
@@ -116,10 +129,10 @@ public class TestResultProjectAction implements Action {
     /**
      * Generates the clickable map HTML fragment for {@link #doTrend(StaplerRequest, StaplerResponse)}.
      */
-    public void doTrendMap( StaplerRequest req, StaplerResponse rsp ) throws IOException, ServletException {
+    public void doTrendMap(StaplerRequest req, StaplerResponse rsp) throws IOException, ServletException {
         AbstractTestResultAction a = getLastTestResultAction();
-        if(a!=null)
-            a.doGraphMap(req,rsp);
+        if (a != null)
+            a.doGraphMap(req, rsp);
         else
             rsp.setStatus(HttpServletResponse.SC_NOT_FOUND);
     }
@@ -127,14 +140,14 @@ public class TestResultProjectAction implements Action {
     /**
      * Changes the test result report display mode.
      */
-    public void doFlipTrend( StaplerRequest req, StaplerResponse rsp ) throws IOException, ServletException {
+    public void doFlipTrend(StaplerRequest req, StaplerResponse rsp) throws IOException, ServletException {
         boolean failureOnly = false;
 
         // check the current preference value
         Cookie[] cookies = req.getCookies();
-        if(cookies!=null) {
+        if (cookies != null) {
             for (Cookie cookie : cookies) {
-                if(cookie.getName().equals(FAILURE_ONLY_COOKIE))
+                if (cookie.getName().equals(FAILURE_ONLY_COOKIE))
                     failureOnly = Boolean.parseBoolean(cookie.getValue());
             }
         }
@@ -143,11 +156,11 @@ public class TestResultProjectAction implements Action {
         failureOnly = !failureOnly;
 
         // set the updated value
-        Cookie cookie = new Cookie(FAILURE_ONLY_COOKIE,String.valueOf(failureOnly));
+        Cookie cookie = new Cookie(FAILURE_ONLY_COOKIE, String.valueOf(failureOnly));
         List anc = req.getAncestors();
-        Ancestor a = (Ancestor) anc.get(anc.size()-2);
+        Ancestor a = (Ancestor) anc.get(anc.size() - 2);
         cookie.setPath(a.getUrl()); // just for this project
-        cookie.setMaxAge(60*60*24*365); // 1 year
+        cookie.setMaxAge(60 * 60 * 24 * 365); // 1 year
         rsp.addCookie(cookie);
 
         // back to the project page
