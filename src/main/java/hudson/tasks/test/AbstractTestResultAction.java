@@ -23,41 +23,21 @@
  */
 package hudson.tasks.test;
 
-import edu.hm.hafner.echarts.BuildResult;
-import edu.hm.hafner.echarts.ChartModelConfiguration;
-import edu.hm.hafner.echarts.LinesChartModel;
 import hudson.Extension;
 import hudson.Functions;
 import hudson.model.*;
-import hudson.tasks.junit.charts.ResultTrendChart;
-import hudson.util.*;
-import hudson.util.ChartUtil.NumberOnlyBuildLabel;
 import jenkins.model.RunAction2;
 import jenkins.model.lazy.LazyBuildMixIn;
-import org.jfree.chart.ChartFactory;
-import org.jfree.chart.JFreeChart;
-import org.jfree.chart.axis.CategoryAxis;
-import org.jfree.chart.axis.CategoryLabelPositions;
-import org.jfree.chart.axis.NumberAxis;
-import org.jfree.chart.plot.CategoryPlot;
-import org.jfree.chart.plot.PlotOrientation;
-import org.jfree.chart.renderer.category.StackedAreaRenderer;
-import org.jfree.data.category.CategoryDataset;
-import org.jfree.ui.RectangleInsets;
 import org.jvnet.localizer.Localizable;
-import org.kohsuke.stapler.StaplerRequest;
-import org.kohsuke.stapler.StaplerResponse;
 import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.export.ExportedBean;
 
 import javax.annotation.Nonnull;
-import java.awt.*;
-import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
-import java.util.*;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Common base class for recording test result.
@@ -70,8 +50,6 @@ import java.util.logging.Logger;
  */
 @ExportedBean
 public abstract class AbstractTestResultAction<T extends AbstractTestResultAction> implements HealthReportingAction, RunAction2 {
-
-    private static final Logger LOGGER = Logger.getLogger(AbstractTestResultAction.class.getName());
 
     /**
      * @since 1.2-beta-1
@@ -221,7 +199,7 @@ public abstract class AbstractTestResultAction<T extends AbstractTestResultActio
         return (T) getPreviousResult(getClass(), true);
     }
 
-    private <U extends AbstractTestResultAction> U getPreviousResult(Class<U> type, boolean eager) {
+    public <U extends AbstractTestResultAction> U getPreviousResult(Class<U> type, boolean eager) {
         Run<?, ?> b = run;
         Set<Integer> loadedBuilds;
         if (!eager && run.getParent() instanceof LazyBuildMixIn.LazyLoadingJob) {
@@ -295,178 +273,11 @@ public abstract class AbstractTestResultAction<T extends AbstractTestResultActio
         return Collections.emptyList();
     }
 
-    private ChartModelConfiguration createChartConfiguration(final boolean isBuildOnXAxis) {
-        return new ChartModelConfiguration(isBuildOnXAxis ? ChartModelConfiguration.AxisType.BUILD : ChartModelConfiguration.AxisType.DATE);
-    }
-
-    public LinesChartModel createChartModel(boolean failureOnly) {
-        int cap = Integer.getInteger(AbstractTestResultAction.class.getName() + ".test.trend.max", Integer.MAX_VALUE);
-        int count = 0;
-        List<BuildResult<AbstractTestResultAction<?>>> results = new ArrayList<>();
-
-        for (AbstractTestResultAction<?> a = this; a != null; a = a.getPreviousResult(AbstractTestResultAction.class, false)) {
-            if (++count > cap) {
-                LOGGER.log(Level.FINE, "capping test trend for {0} at {1}", new Object[]{run, cap});
-                break;
-            }
-
-            edu.hm.hafner.echarts.Build build = new edu.hm.hafner.echarts.Build(a.run.number);
-            results.add(new BuildResult<>(build, a));
-        }
-
-        ResultTrendChart trendChart = new ResultTrendChart(failureOnly);
-        return trendChart.create(results, createChartConfiguration(true));
-    }
-
-    /**
-     * Generates a PNG image for the test result trend.
-     */
-    public void doGraph(StaplerRequest req, StaplerResponse rsp) throws IOException {
-        if (ChartUtil.awtProblemCause != null) {
-            // not available. send out error message
-            rsp.sendRedirect2(req.getContextPath() + "/images/headless.png");
-            return;
-        }
-
-        if (req.checkIfModified(run.getTimestamp(), rsp))
-            return;
-
-        ChartUtil.generateGraph(req, rsp, createChart(req, buildDataSet(req)), calcDefaultSize());
-    }
-
-    /**
-     * Generates a clickable map HTML for {@link #doGraph(StaplerRequest, StaplerResponse)}.
-     */
-    public void doGraphMap(StaplerRequest req, StaplerResponse rsp) throws IOException {
-        if (req.checkIfModified(run.getTimestamp(), rsp))
-            return;
-        ChartUtil.generateClickableMap(req, rsp, createChart(req, buildDataSet(req)), calcDefaultSize());
-    }
-
     /**
      * Returns a full path down to a test result
      */
     public String getTestResultPath(TestResult it) {
         return getUrlName() + "/" + it.getRelativePathFrom(null);
-    }
-
-    /**
-     * Determines the default size of the trend graph.
-     * <p>
-     * This is default because the query parameter can choose arbitrary size.
-     * If the screen resolution is too low, use a smaller size.
-     */
-    private Area calcDefaultSize() {
-        Area res = Functions.getScreenResolution();
-        if (res != null && res.width <= 800)
-            return new Area(250, 100);
-        else
-            return new Area(500, 200);
-    }
-
-    private CategoryDataset buildDataSet(StaplerRequest req) {
-        boolean failureOnly = Boolean.valueOf(req.getParameter("failureOnly"));
-
-        DataSetBuilder<String, NumberOnlyBuildLabel> dsb = new DataSetBuilder<String, NumberOnlyBuildLabel>();
-
-        int cap = Integer.getInteger(AbstractTestResultAction.class.getName() + ".test.trend.max", Integer.MAX_VALUE);
-        int count = 0;
-        for (AbstractTestResultAction<?> a = this; a != null; a = a.getPreviousResult(AbstractTestResultAction.class, false)) {
-            if (++count > cap) {
-                LOGGER.log(Level.FINE, "capping test trend for {0} at {1}", new Object[]{run, cap});
-                break;
-            }
-            dsb.add(a.getFailCount(), "failed", new NumberOnlyBuildLabel(a.run));
-            if (!failureOnly) {
-                dsb.add(a.getSkipCount(), "skipped", new NumberOnlyBuildLabel(a.run));
-                dsb.add(a.getTotalCount() - a.getFailCount() - a.getSkipCount(), "total", new NumberOnlyBuildLabel(a.run));
-            }
-        }
-        LOGGER.log(Level.FINER, "total test trend count for {0}: {1}", new Object[]{run, count});
-        return dsb.build();
-    }
-
-    private JFreeChart createChart(StaplerRequest req, CategoryDataset dataset) {
-
-        final String relPath = getRelPath(req);
-
-        final JFreeChart chart = ChartFactory.createStackedAreaChart(
-                null,                   // chart title
-                null,                   // unused
-                "count",                  // range axis label
-                dataset,                  // data
-                PlotOrientation.VERTICAL, // orientation
-                false,                     // include legend
-                true,                     // tooltips
-                false                     // urls
-        );
-
-        // NOW DO SOME OPTIONAL CUSTOMISATION OF THE CHART...
-
-        // set the background color for the chart...
-
-//        final StandardLegend legend = (StandardLegend) chart.getLegend();
-//        legend.setAnchor(StandardLegend.SOUTH);
-
-        chart.setBackgroundPaint(Color.white);
-
-        final CategoryPlot plot = chart.getCategoryPlot();
-
-        // plot.setAxisOffset(new Spacer(Spacer.ABSOLUTE, 5.0, 5.0, 5.0, 5.0));
-        plot.setBackgroundPaint(Color.WHITE);
-        plot.setOutlinePaint(null);
-        plot.setForegroundAlpha(0.8f);
-//        plot.setDomainGridlinesVisible(true);
-//        plot.setDomainGridlinePaint(Color.white);
-        plot.setRangeGridlinesVisible(true);
-        plot.setRangeGridlinePaint(Color.black);
-
-        CategoryAxis domainAxis = new ShiftedCategoryAxis(null);
-        plot.setDomainAxis(domainAxis);
-        domainAxis.setCategoryLabelPositions(CategoryLabelPositions.UP_90);
-        domainAxis.setLowerMargin(0.0);
-        domainAxis.setUpperMargin(0.0);
-        domainAxis.setCategoryMargin(0.0);
-
-        final NumberAxis rangeAxis = (NumberAxis) plot.getRangeAxis();
-        rangeAxis.setStandardTickUnits(NumberAxis.createIntegerTickUnits());
-
-        StackedAreaRenderer ar = new StackedAreaRenderer2() {
-            @Override
-            public String generateURL(CategoryDataset dataset, int row, int column) {
-                NumberOnlyBuildLabel label = (NumberOnlyBuildLabel) dataset.getColumnKey(column);
-                return relPath + label.getRun().getNumber() + "/testReport/";
-            }
-
-            @Override
-            public String generateToolTip(CategoryDataset dataset, int row, int column) {
-                NumberOnlyBuildLabel label = (NumberOnlyBuildLabel) dataset.getColumnKey(column);
-                AbstractTestResultAction a = label.getRun().getAction(AbstractTestResultAction.class);
-                switch (row) {
-                    case 0:
-                        return String.valueOf(Messages.AbstractTestResultAction_fail(label.getRun().getDisplayName(), a.getFailCount()));
-                    case 1:
-                        return String.valueOf(Messages.AbstractTestResultAction_skip(label.getRun().getDisplayName(), a.getSkipCount()));
-                    default:
-                        return String.valueOf(Messages.AbstractTestResultAction_test(label.getRun().getDisplayName(), a.getTotalCount()));
-                }
-            }
-        };
-        plot.setRenderer(ar);
-        ar.setSeriesPaint(0, ColorPalette.RED); // Failures.
-        ar.setSeriesPaint(1, ColorPalette.YELLOW); // Skips.
-        ar.setSeriesPaint(2, ColorPalette.BLUE); // Total.
-
-        // crop extra space around the graph
-        plot.setInsets(new RectangleInsets(0, 0, 0, 5.0));
-
-        return chart;
-    }
-
-    private String getRelPath(StaplerRequest req) {
-        String relPath = req.getParameter("rel");
-        if (relPath == null) return "";
-        return relPath;
     }
 
     /**

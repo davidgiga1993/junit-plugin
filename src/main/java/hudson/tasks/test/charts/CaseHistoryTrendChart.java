@@ -1,30 +1,29 @@
-package hudson.tasks.junit.charts;
+package hudson.tasks.test.charts;
 
 
 import edu.hm.hafner.echarts.*;
 import edu.hm.hafner.echarts.LineSeries.FilledMode;
 import edu.hm.hafner.echarts.LineSeries.StackedMode;
-import hudson.tasks.test.AbstractTestResultAction;
+import hudson.tasks.test.TestResult;
+
+import java.util.List;
 
 /**
  * Builds the model for a trend chart showing all issues for a given number of builds. The issues are colored according
  * to the specified health report.
- *
- * @author Ullrich Hafner
  */
-public class ResultTrendChart implements TrendChart {
+public class CaseHistoryTrendChart {
 
-    private final boolean failedOnly;
+    private final boolean showDuration;
 
-    public ResultTrendChart(boolean failedOnly) {
-        this.failedOnly = failedOnly;
+    public CaseHistoryTrendChart(boolean showDuration) {
+        this.showDuration = showDuration;
     }
 
-    @Override
-    public LinesChartModel create(final Iterable<? extends BuildResult<AbstractTestResultAction<?>>> results,
+    public LinesChartModel create(List<BuildResult<TestResult>> results,
                                   final ChartModelConfiguration configuration) {
-        
-        ResultsSeriesBuilder builder = new ResultsSeriesBuilder(false);
+
+        CaseHistorySeriesBuilder builder = new CaseHistorySeriesBuilder(showDuration);
         LinesDataSet dataSet = builder.createDataSet(configuration, results);
 
 
@@ -34,11 +33,6 @@ public class ResultTrendChart implements TrendChart {
 
         LineSeries unhealthy = createSeries("Failed", Palette.RED);
         unhealthy.addAll(dataSet.getSeries(ResultsSeriesBuilder.FAILED));
-
-        if (failedOnly) {
-            model.addSeries(unhealthy);
-            return model;
-        }
 
         LineSeries healthy = createSeries("Passed", Palette.GREEN);
         healthy.addAll(dataSet.getSeries(ResultsSeriesBuilder.PASSED));

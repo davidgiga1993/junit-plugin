@@ -1,4 +1,4 @@
-package hudson.tasks.junit.charts;
+package hudson.tasks.test.charts;
 
 import edu.hm.hafner.echarts.SeriesBuilder;
 import hudson.tasks.test.AbstractTestResultAction;
@@ -24,13 +24,13 @@ public class ResultsSeriesBuilder extends SeriesBuilder<AbstractTestResultAction
 
         int failed = result.getFailCount();
         series.put(FAILED, failed);
-        if(failureOnly) {
+        if (failureOnly) {
             return series;
         }
 
         int skipped = result.getSkipCount();
         series.put(SKIPPED, skipped);
-        series.put(PASSED, result.getTotalCount()- failed-skipped);
+        series.put(PASSED, result.getTotalCount() - failed - skipped);
         return series;
     }
 }

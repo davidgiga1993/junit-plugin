@@ -28,13 +28,12 @@ import hudson.model.Action;
 import hudson.model.Job;
 import hudson.model.Run;
 import hudson.tasks.junit.JUnitResultArchiver;
+import hudson.tasks.test.charts.ResultTrendsProvider;
 import org.kohsuke.stapler.Ancestor;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
 
-import javax.servlet.ServletException;
 import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 
@@ -110,37 +109,17 @@ public class TestResultProjectAction implements Action {
      * @param failureOnlyStr True if only failures should be included in the report
      * @return Supplier
      */
-    public TrendsSupplier getTrendsSupplier(String failureOnlyStr) {
+    @SuppressWarnings("unused")
+    public ResultTrendsProvider getTrendsProvider(String failureOnlyStr) {
         boolean failureOnly = Boolean.parseBoolean(failureOnlyStr);
-        return new TrendsSupplier(failureOnly, getLastTestResultAction());
-    }
-
-    /**
-     * Display the test result trend.
-     */
-    public void doTrend(StaplerRequest req, StaplerResponse rsp) throws IOException, ServletException {
-        AbstractTestResultAction a = getLastTestResultAction();
-        if (a != null)
-            a.doGraph(req, rsp);
-        else
-            rsp.setStatus(HttpServletResponse.SC_NOT_FOUND);
-    }
-
-    /**
-     * Generates the clickable map HTML fragment for {@link #doTrend(StaplerRequest, StaplerResponse)}.
-     */
-    public void doTrendMap(StaplerRequest req, StaplerResponse rsp) throws IOException, ServletException {
-        AbstractTestResultAction a = getLastTestResultAction();
-        if (a != null)
-            a.doGraphMap(req, rsp);
-        else
-            rsp.setStatus(HttpServletResponse.SC_NOT_FOUND);
+        return new ResultTrendsProvider(failureOnly, getLastTestResultAction());
     }
 
     /**
      * Changes the test result report display mode.
      */
-    public void doFlipTrend(StaplerRequest req, StaplerResponse rsp) throws IOException, ServletException {
+    @SuppressWarnings("unused")
+    public void doFlipTrend(StaplerRequest req, StaplerResponse rsp) throws IOException {
         boolean failureOnly = false;
 
         // check the current preference value
