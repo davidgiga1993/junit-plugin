@@ -65,7 +65,11 @@ public class CaseHistoryTrendsProvider extends AbstractTrendsProvider {
         List<BuildResult<TestResult>> results = new ArrayList<>();
 
         Iterator<Run<?, ?>> itr = (Iterator<Run<?, ?>>) job.getBuilds().iterator();
-        hudson.util.Iterators.skip(itr, start);
+
+        int skip = start;
+        while (itr.hasNext() && skip-- > 0) {
+            itr.next();
+        }
 
         int delta = end - start;
         while (delta > 0 && itr.hasNext()) {
