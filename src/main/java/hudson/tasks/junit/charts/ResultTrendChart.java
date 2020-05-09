@@ -27,7 +27,9 @@ public class ResultTrendChart implements TrendChart {
         ResultsSeriesBuilder builder = new ResultsSeriesBuilder(false);
         LinesDataSet dataSet = builder.createDataSet(configuration, results);
 
+
         LinesChartModel model = new LinesChartModel();
+        model.setBuildNumbers(dataSet.getBuildNumbers());
         model.setDomainAxisLabels(dataSet.getDomainAxisLabels());
 
         LineSeries unhealthy = createSeries("Failed", Palette.RED);
@@ -49,6 +51,6 @@ public class ResultTrendChart implements TrendChart {
     }
 
     private LineSeries createSeries(final String name, final Palette color) {
-        return new LineSeries(name, color.getNormal(), StackedMode.STACKED, FilledMode.FILLED);
+        return new LineSeries(name, color.getNormal(), StackedMode.SEPARATE_LINES, FilledMode.FILLED);
     }
 }
